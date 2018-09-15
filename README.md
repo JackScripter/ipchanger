@@ -23,3 +23,7 @@ When you will be asked to type a new IP and prefix, you have 2 possibilities:
 ```
 192.168.1.10/24/192.168.1.1
 ```
+
+Bug report
+-
+jackscripter45@gmail.com
