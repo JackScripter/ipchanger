@@ -21,6 +21,7 @@ function Refresh() {
 	echo '**Applying change**'
 	systemctl restart networking
 	nmcli connection reload "$UINT" # Force applying IP on parrotOS
+	systemctl restart networking # Force applying IP on parrotOS
 	exit 1
 } # Apply setting #1.2
 function VerifyIP() {
