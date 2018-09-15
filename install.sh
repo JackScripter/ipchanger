@@ -32,6 +32,7 @@ possible_OS=`cat /etc/os-release | grep --color '^ID'`
 IFS='=' inarr=(${possible_OS})
 case "${inarr[1]}" in
         *'debian'*) Debian;;
+        *'ubuntu'*) Debian;;
         *'centos'*) RedHat;;
         *'fedora'*) RedHat;;
         *)
