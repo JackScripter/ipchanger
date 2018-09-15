@@ -95,7 +95,7 @@ function WriteChange() {
 	fi
 }
 if [[ $1 =~ '-h' ]]; then
-	echo "This script will not work without package ifupdown."
+	echo -e "This script will NOT work without package \e[96mifupdown\e[0m."
 	echo "Simply follow the instruction."
 	echo "Networking service will restart if the script execute successfully."
 	exit 0
