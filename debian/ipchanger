@@ -18,8 +18,9 @@ function Error() {
 	exit 1
 } # Error code #1.1
 function Refresh() {
-	echo '**Restarting networking service**'
+	echo '**Applying change**'
 	systemctl restart networking
+	nmcli connection reload "$UINT" # Force applying IP on parrotOS
 	exit 1
 } # Apply setting #1.2
 function VerifyIP() {
