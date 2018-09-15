@@ -1,5 +1,5 @@
 #!/bin/bash
-# Current version 1.1     by Jacob Ouellette
+# Current version 1.2     by Jacob Ouellette
 ########################################################################################################
 # Interface path "/etc/network/interfaces" is default.
 INTPATH='/etc/network/interfaces'
@@ -16,7 +16,12 @@ function Error() {
 	'4') echo -e "\e[31mERROR: Interface does not exist\e[0m";;
 	esac
 	exit 1
-} # Error code
+} # Error code #1.1
+function Refresh() {
+	echo '**Restarting networking service**'
+	systemctl restart networking
+	exit 1
+} # Apply setting #1.2
 function VerifyIP() {
 	IFS='.' inarr=(${1});
 	appender=''
@@ -58,14 +63,13 @@ function CalcPrefix() {
 		else
 			binMask+=0
 		fi
-
 	done # Get binary of prefix
 	dotMask=$binMask
 	for i in {1..27}; do
 		if [[ $i == 8 || $i == 17 || $i == 26 ]]; then
 			dotMask="${dotMask:0:i}.${dotMask:i}"
 		fi
-	done # Add . each 8 bit
+	done # Add . each 8 bit 
 	IFS='.' inarr=(${dotMask});
 	n1=$((2#${inarr[0]})); n2=$((2#${inarr[1]})); n3=$((2#${inarr[2]})); n4=$((2#${inarr[3]})) # Binary to decimal
 	netMask=$n1.$n2.$n3.$n4
@@ -79,6 +83,12 @@ function WriteChange() {
 			echo '**Replacing dhcp by static mode**'
 			sed -i "${inarr[0]}s/dhcp/static/" "$INTPATH"
 		fi
+		if [[ $cip > `wc -l $INTPATH | cut -d' ' -f1` ]]; then
+			echo -e "\taddress $IP" >> "$INTPATH"
+                	echo -e "\tnetmask $netMask" >> "$INTPATH"
+			if ! [[ $3 == "" ]]; then echo -e "\tgateway $GW" >> "$INTPATH"; fi
+			Refresh
+		fi # If is the last interface of file (need append instead of replace) #1.2
 		sed -i "${cip}s/.*/\taddress $IP/" "$INTPATH" # Replace a line by number
 		sed -i "${cnet}s/.*/\tnetmask $netMask/" "$INTPATH"
 		if ! [[ $3 == "" ]]; then
@@ -110,9 +120,7 @@ for SINT in $ALL_INT; do
 	if [[ $SINT == $UINT ]]; then
 		AskInfo
 		WriteChange $IP $netMask $GW
-		echo '**Restarting networking service**'
-		systemctl restart networking
-		exit 0
+		Refresh
 	fi
 done
 Error 4
