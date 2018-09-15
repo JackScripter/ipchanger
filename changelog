@@ -1,3 +1,5 @@
+v1.2
+- Fixed bug when the selected interface was in dhcp and at the end of the file.
 v1.1
 - Add colored text;
 - Add ens interface name.
