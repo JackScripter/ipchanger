@@ -30,8 +30,8 @@ function RedHat() {
         fi
         exit 1
 } # RedHat installation
-possible_OS=`cat /etc/os-release | grep '^ID_LIKE'`
-if [[ $possible_OS == '' || "$possible_OS" != *'debian'* || "$possible_OS" != *'rhel'* ]]; then possible_OS=`cat /etc/os-release | grep '^ID'`; fi
+possible_OS=`cat /etc/os-release | grep '^ID'`
+if [[ $possible_OS == '' || "$possible_OS" != *'debian'* || "$possible_OS" != *'rhel'* ]]; then possible_OS=`cat /etc/os-release | grep '^ID_LIKE'`; fi
 IFS='=' inarr=(${possible_OS})
 case "${inarr[1]}" in
         *'debian'*) Debian;;
