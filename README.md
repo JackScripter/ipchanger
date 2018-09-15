@@ -1,5 +1,5 @@
 # ipchanger
-Script that change ip address easily (Debian)(RedHat version in progress)
+Script to change ip address permanently and quickly (Debian)(RedHat version in progress)
 
 Installation
 -
