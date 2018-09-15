@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installer v1.0
+# Installer v1.1
 ######################################################################################################
 # Default installation path:
 DEFAULT_INSTALL='/usr/bin'
@@ -17,6 +17,7 @@ function Debian() {
                 cp -v "debian/ipchanger" "$editedPath"
                 chmod -v 755 "$editedPath/ipchanger"
         fi
+        exit 1
 } # Debian installation
 function RedHat() {
         read -p "Installation path [$DEFAULT_INSTALL]: " editedPath
@@ -27,14 +28,14 @@ function RedHat() {
                 cp -v "redhat/ipchanger" "$editedPath"
                 chmod -v 755 "$editedPath/ipchanger"
         fi
+        exit 1
 } # RedHat installation
-possible_OS=`cat /etc/os-release | grep --color '^ID'`
+possible_OS=`cat /etc/os-release | grep '^ID_LIKE'`
+if [[ $possible_OS == '' || "$possible_OS" != *'debian'* || "$possible_OS" != *'rhel'* ]]; then possible_OS=`cat /etc/os-release | grep '^ID'`; fi
 IFS='=' inarr=(${possible_OS})
 case "${inarr[1]}" in
         *'debian'*) Debian;;
-        *'ubuntu'*) Debian;;
-        *'centos'*) RedHat;;
-        *'fedora'*) RedHat;;
+        *'rhel'*) RedHat;;
         *)
                 echo "CANNOT FIND OS OR IT IS NOT SUPPORTED. OS found: ${inarr[1]}"
                 read -p 'Manual installation mode ? [y/n] ' manual
@@ -50,3 +51,5 @@ case "${inarr[1]}" in
                         exit 0
                 fi
 esac # Determine OS
+echo -e "\e[31mUnknown error\e[0m"
+exit 0
