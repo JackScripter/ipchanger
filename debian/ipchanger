@@ -1,8 +1,13 @@
 #!/bin/bash
-# Current version 1.2     by Jacob Ouellette
+# Current version 1.3     by Jacob Ouellette
 ########################################################################################################
 # Interface path "/etc/network/interfaces" is default.
 INTPATH='/etc/network/interfaces'
+# Color code
+DEF='\e[0m'     # Default
+RED='\e[31m'    # Red
+CYAN='\e[96m'   # Sky blue
+GREEN='\e[92m'  # Green
 ########################################################################################################
 if [[ $EUID -ne 0 ]]; then
         echo "This script must be run as root"
@@ -10,24 +15,24 @@ if [[ $EUID -ne 0 ]]; then
 fi # Check if the script is run as root
 function Error() {
 	case "$1" in
-	'1') echo -e "\e[31mERROR: Invalid IP address\e[0m";;
-	'2') echo -e "\e[31mERROR: Invalid prefix\e[0m";;
-	'3') echo -e "\e[31mERROR: Invalid gateway\e[0m";;
-	'4') echo -e "\e[31mERROR: Interface does not exist\e[0m";;
+	'1') echo -e "${RED}ERROR: Invalid IP address";;
+	'2') echo -e "${RED}ERROR: Invalid prefix";;
+	'3') echo -e "${RED}ERROR: Invalid gateway";;
+	'4') echo -e "${RED}ERROR: Interface does not exist";;
+	'5') echo -e "${RED}ERROR: $2 is not a number";;
 	esac
-	exit 1
-} # Error code #1.1
+	echo -e $DEF && exit 1
+} # Error code #1.3
 function Refresh() {
-	echo '**Applying change**'
-	systemctl restart networking
-	nmcli connection reload "$UINT" # Force applying IP on parrotOS
-	systemctl restart networking # Force applying IP on parrotOS
+	echo '**Restarting networking service**' && systemctl restart networking
+	echo '**Reloading connection on '"$UINT"'**' && nmcli connection reload "$UINT"
 	exit 1
-} # Apply setting #1.2
+} # Apply setting #1.3
 function VerifyIP() {
 	IFS='.' inarr=(${1});
 	appender=''
 	for i in {0..3}; do
+	    if ! [[ ${inarr[i]} =~ $INT ]]; then Error 5 ${inarr[i]}; fi #1.3
 		if [[ $i == 0 || $i == 3 ]]; then
 			if [[ ${inarr[i]} -le 0 || ${inarr[i]} -ge 255 ]]; then
 				if [[ $2 == 1 ]]; then Error 1; fi
@@ -44,12 +49,14 @@ function VerifyIP() {
 	done # Check IP validation
 }
 function AskInfo() {
+    INT='^[0-9]+$' # Used to validate int #1.3
 	read -p "New IP with prefix (/gateway if needed): " nIP
 	IFS='/' inarr=(${nIP});
 	VerifyIP ${inarr[0]} 1
 	IP=${appender::-1} # Remove last character .
 	IFS='/' inarr=(${nIP});
 	prefix=(${inarr[1]})
+	if ! [[ $prefix =~ $INT ]]; then Error 5 $prefix; fi # Check if prefix is int #1.3
 	if [[ $prefix -le 0 || $prefix -gt 32 ]]; then Error 2; fi # Check prefix validation
 	CalcPrefix $prefix
 	IFS='/' inarr=(${nIP});
@@ -59,19 +66,9 @@ function AskInfo() {
 	fi
 }
 function CalcPrefix() {
-	for (( i=1; i<=32; i++ )); do
-		if [[ ${#binMask} -lt $1 ]]; then
-			binMask+=1
-		else
-			binMask+=0
-		fi
-	done # Get binary of prefix
+	for (( i=1; i<=32; i++ )); do if [[ ${#binMask} -lt $1 ]]; then binMask+=1; else binMask+=0; fi; done # Get binary of prefix
 	dotMask=$binMask
-	for i in {1..27}; do
-		if [[ $i == 8 || $i == 17 || $i == 26 ]]; then
-			dotMask="${dotMask:0:i}.${dotMask:i}"
-		fi
-	done # Add . each 8 bit 
+	for i in {1..27}; do if [[ $i == 8 || $i == 17 || $i == 26 ]]; then dotMask="${dotMask:0:i}.${dotMask:i}"; fi; done # Add . each 8 bit
 	IFS='.' inarr=(${dotMask});
 	n1=$((2#${inarr[0]})); n2=$((2#${inarr[1]})); n3=$((2#${inarr[2]})); n4=$((2#${inarr[3]})) # Binary to decimal
 	netMask=$n1.$n2.$n3.$n4
@@ -81,31 +78,28 @@ function WriteChange() {
 		line=`grep -n "iface $UINT" "$INTPATH"`
 		IFS=':' inarr=(${line})
 		cip=$((${inarr[0]}+1)); cnet=$((${inarr[0]}+2)); cgw=$((${inarr[0]}+3)) # Get line number of ip, netmask and gw
-		if [[ `sed -n "${inarr[0]}p" "$INTPATH"` =~ "dhcp" ]]; then
-			echo '**Replacing dhcp by static mode**'
-			sed -i "${inarr[0]}s/dhcp/static/" "$INTPATH"
-		fi
+		if [[ `sed -n "${inarr[0]}p" "$INTPATH"` =~ "dhcp" ]]; then sed -i "${inarr[0]}s/dhcp/static/" "$INTPATH" && echo "DHCP -> static" || echo -e "${RED}Can't change to static mode${DEF}"; fi
 		if [[ $cip > `wc -l $INTPATH | cut -d' ' -f1` ]]; then
-			echo -e "\taddress $IP" >> "$INTPATH"
-                	echo -e "\tnetmask $netMask" >> "$INTPATH"
-			if ! [[ $3 == "" ]]; then echo -e "\tgateway $GW" >> "$INTPATH"; fi
+			echo -e "\taddress $IP" >> "$INTPATH" && echo -e "IPv4 -> ${GREEN}OK${DEF}" || echo -e "IPv4 -> ${RED}FAILED${DEF}"
+            echo -e "\tnetmask $netMask" >> "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
+			if ! [[ $3 == "" ]]; then echo -e "\tgateway $GW" >> "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi
 			Refresh
 		fi # If is the last interface of file (need append instead of replace) #1.2
-		sed -i "${cip}s/.*/\taddress $IP/" "$INTPATH" # Replace a line by number
-		sed -i "${cnet}s/.*/\tnetmask $netMask/" "$INTPATH"
+		sed -i "${cip}s/.*/\taddress $IP/" "$INTPATH" && echo -e "IPv4 -> ${GREEN}OK${DEF}" || echo -e "IPv4 -> ${RED}FAILED${DEF}" # Replace a line by number
+		sed -i "${cnet}s/.*/\tnetmask $netMask/" "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
 		if ! [[ $3 == "" ]]; then
-			if [[ `sed -n "${cgw}p" "$INTPATH"` =~ "gateway" ]]; then sed -i "${cgw}s/.*/\tgateway $GW/" "$INTPATH"
-			else sed -i -e "${cnet}s/$/\n\tgateway $GW/" "$INTPATH"; fi
+			if [[ `sed -n "${cgw}p" "$INTPATH"` =~ "gateway" ]]; then sed -i "${cgw}s/.*/\tgateway $GW/" "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"
+		    else sed -i -e "${cnet}s/$/\n\tgateway $GW/" "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi # Insert line after
+		else if [[ `sed -n "${cgw}p" "$INTPATH"` =~ "gateway" ]]; then sed -i "${cgw}d" "$INTPATH" && echo -e "Gateway -> ${GREEN}REMOVED${DEF}" || echo -e "Gateway -> ${RED}CANNOT BE REMOVED${DEF}" ; fi # Remove if applicable, last gateway set #1.3
 		fi
 	else
-		echo "auto $UINT" >> "$INTPATH"
+		echo "auto $UINT" >> "$INTPATH" && echo -e "${GREEN}$UINT added to $INTPATH file${DEF}" || echo -e "${RED}CANNOT ADD $UINT TO $INTPATH${DEF}"
 		echo "iface $UINT inet static" >> "$INTPATH"
-		echo -e "\taddress $IP" >> "$INTPATH"
-		echo -e "\tnetmask $netMask" >> "$INTPATH"
-		echo "$UINT added to $INTPATH file"
-		if ! [[ $3 == "" ]]; then echo -e "\tgateway $GW" >> "$INTPATH"; fi
+		echo -e "\taddress $IP" >> "$INTPATH"&& echo -e "IPv4 -> ${GREEN}OK${DEF}" || echo -e "IPv4 -> ${RED}FAILED${DEF}"
+		echo -e "\tnetmask $netMask" >> "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
+		if ! [[ $3 == "" ]]; then echo -e "\tgateway $GW" >> "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi
 	fi
-}
+} # #1.3: More verbose
 if [[ $1 =~ '-h' ]]; then
 	echo -e "This script will NOT work without package \e[96mifupdown\e[0m."
 	echo "Simply follow the instruction."

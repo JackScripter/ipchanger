@@ -1,3 +1,7 @@
+v1.3
+- If you type *IP/prefix/gateway* and then *IP/prefix*, the gateway will be removed;
+- More verbose;
+- Fixed bug when typing *IP/"*. This was setting the netmask to 0.0.0.0.
 v1.2
 - Fixed bug when the selected interface was in dhcp and at the end of the file.
 v1.1
