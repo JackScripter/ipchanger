@@ -95,13 +95,13 @@ function WriteChange() {
 	else
 		echo "auto $UINT" >> "$INTPATH" && echo -e "${GREEN}$UINT added to $INTPATH file${DEF}" || echo -e "${RED}CANNOT ADD $UINT TO $INTPATH${DEF}"
 		echo "iface $UINT inet static" >> "$INTPATH"
-		echo -e "\taddress $IP" >> "$INTPATH"&& echo -e "IPv4 -> ${GREEN}OK${DEF}" || echo -e "IPv4 -> ${RED}FAILED${DEF}"
+		echo -e "\taddress $IP" >> "$INTPATH" && echo -e "IPv4 -> ${GREEN}OK${DEF}" || echo -e "IPv4 -> ${RED}FAILED${DEF}"
 		echo -e "\tnetmask $netMask" >> "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
 		if ! [[ $3 == "" ]]; then echo -e "\tgateway $GW" >> "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi
 	fi
 } # #1.3: More verbose
 if [[ $1 =~ '-h' ]]; then
-	echo -e "This script will NOT work without package \e[96mifupdown\e[0m."
+	echo -e "This script will NOT work without package ${CYAN}ifupdown${DEF}."
 	echo "Simply follow the instruction."
 	echo "Networking service will restart if the script execute successfully."
 	exit 0
