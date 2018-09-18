@@ -23,6 +23,10 @@ When you will be asked to type a new IP and prefix, you have 2 possibilities:
 ```
 192.168.1.10/24/192.168.1.1
 ```
+- Option 3 (dhcp):
+```
+dhcp
+```
 
 Bug report
 -
