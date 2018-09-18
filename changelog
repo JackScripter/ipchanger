@@ -1,3 +1,6 @@
+v1.4
+- You can now set the interface to dhcp;
+- Fixed bug when no IPv4 was assigned to an interface. The interface wasn't selectable.
 v1.3
 - If you type *IP/prefix/gateway* and then *IP/prefix*, the gateway will be removed;
 - More verbose;
