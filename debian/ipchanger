@@ -1,5 +1,5 @@
 #!/bin/bash
-# Current version 1.3     by Jacob Ouellette
+# Current version 1.4     by Jacob Ouellette
 ########################################################################################################
 # Interface path "/etc/network/interfaces" is default.
 INTPATH='/etc/network/interfaces'
@@ -32,12 +32,12 @@ function VerifyIP() {
 	IFS='.' inarr=(${1});
 	appender=''
 	for i in {0..3}; do
-	    if ! [[ ${inarr[i]} =~ $INT ]]; then Error 5 ${inarr[i]}; fi #1.3
+		if ! [[ ${inarr[i]} =~ $INT ]]; then Error 5 ${inarr[i]}; fi #1.3
 		if [[ $i == 0 || $i == 3 ]]; then
 			if [[ ${inarr[i]} -le 0 || ${inarr[i]} -ge 255 ]]; then
 				if [[ $2 == 1 ]]; then Error 1; fi
-                        	if [[ $2 == 2 ]]; then Error 3; fi
-        		fi
+                		if [[ $2 == 2 ]]; then Error 3; fi
+            		fi
 		fi # Check first and last digit, can't be 0 or 255
 		if [[ $i == 1 || $i == 2 ]]; then
 			if [[ ${inarr[i]} -lt 0 || ${inarr[i]} -gt 255 ]]; then
@@ -48,9 +48,18 @@ function VerifyIP() {
 		appender+=${inarr[$i]}.
 	done # Check IP validation
 }
+function DHCP() {
+    GetLineNumber
+    if [[ `sed -n "${cgw}p" "$INTPATH"` =~ "gateway" ]]; then sed -i "${cgw}d" "$INTPATH"; fi # Remove address line
+    if [[ `sed -n "${cnet}p" "$INTPATH"` =~ "netmask" ]]; then sed -i "${cnet}d" "$INTPATH"; fi
+    if [[ `sed -n "${cip}p" "$INTPATH"` =~ "address" ]]; then sed -i "${cip}d" "$INTPATH"; fi
+    sed -i "${inarr[0]}s/static/dhcp/" "$INTPATH" && echo "Static -> DHCP" || echo -e "${RED}Can't change to DHCP mode${DEF}" # Change static to dhcp
+    Refresh
+} # Set to dhcp #1.4
 function AskInfo() {
     INT='^[0-9]+$' # Used to validate int #1.3
 	read -p "New IP with prefix (/gateway if needed): " nIP
+	if [[ "$nIP" == "dhcp" ]]; then DHCP; fi # Check if dhcp #1.4
 	IFS='/' inarr=(${nIP});
 	VerifyIP ${inarr[0]} 1
 	IP=${appender::-1} # Remove last character .
@@ -73,15 +82,18 @@ function CalcPrefix() {
 	n1=$((2#${inarr[0]})); n2=$((2#${inarr[1]})); n3=$((2#${inarr[2]})); n4=$((2#${inarr[3]})) # Binary to decimal
 	netMask=$n1.$n2.$n3.$n4
 }
+function GetLineNumber() {
+	line=`grep -n "iface $UINT" "$INTPATH"`
+	IFS=':' inarr=(${line})
+	cip=$((${inarr[0]}+1)); cnet=$((${inarr[0]}+2)); cgw=$((${inarr[0]}+3))
+} # Get line number of address, netmask and gateway.
 function WriteChange() {
 	if grep -Fq "$UINT" "$INTPATH"; then
-		line=`grep -n "iface $UINT" "$INTPATH"`
-		IFS=':' inarr=(${line})
-		cip=$((${inarr[0]}+1)); cnet=$((${inarr[0]}+2)); cgw=$((${inarr[0]}+3)) # Get line number of ip, netmask and gw
+		GetLineNumber
 		if [[ `sed -n "${inarr[0]}p" "$INTPATH"` =~ "dhcp" ]]; then sed -i "${inarr[0]}s/dhcp/static/" "$INTPATH" && echo "DHCP -> static" || echo -e "${RED}Can't change to static mode${DEF}"; fi
 		if [[ $cip > `wc -l $INTPATH | cut -d' ' -f1` ]]; then
 			echo -e "\taddress $IP" >> "$INTPATH" && echo -e "IPv4 -> ${GREEN}OK${DEF}" || echo -e "IPv4 -> ${RED}FAILED${DEF}"
-            echo -e "\tnetmask $netMask" >> "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
+            		echo -e "\tnetmask $netMask" >> "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
 			if ! [[ $3 == "" ]]; then echo -e "\tgateway $GW" >> "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi
 			Refresh
 		fi # If is the last interface of file (need append instead of replace) #1.2
@@ -89,7 +101,7 @@ function WriteChange() {
 		sed -i "${cnet}s/.*/\tnetmask $netMask/" "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
 		if ! [[ $3 == "" ]]; then
 			if [[ `sed -n "${cgw}p" "$INTPATH"` =~ "gateway" ]]; then sed -i "${cgw}s/.*/\tgateway $GW/" "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"
-		    else sed -i -e "${cnet}s/$/\n\tgateway $GW/" "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi # Insert line after
+		    	else sed -i -e "${cnet}s/$/\n\tgateway $GW/" "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi # Insert line after
 		else if [[ `sed -n "${cgw}p" "$INTPATH"` =~ "gateway" ]]; then sed -i "${cgw}d" "$INTPATH" && echo -e "Gateway -> ${GREEN}REMOVED${DEF}" || echo -e "Gateway -> ${RED}CANNOT BE REMOVED${DEF}" ; fi # Remove if applicable, last gateway set #1.3
 		fi
 	else
@@ -101,12 +113,11 @@ function WriteChange() {
 	fi
 } # #1.3: More verbose
 if [[ $1 =~ '-h' ]]; then
-	echo -e "This script will NOT work without package ${CYAN}ifupdown${DEF}."
-	echo "Simply follow the instruction."
-	echo "Networking service will restart if the script execute successfully."
+    echo "Syntax when asking for IP: ip/prefix OR ip/prefix/gateway OR dhcp"
+	echo -e "This script will NOT work without package ${CYAN}ifupdown${DEF}. Simply follow the instruction. Networking service will restart if the script execute successfully."
 	exit 0
 fi # Help
-IPS=`ip addr | grep "inet "`
+IPS=`ip addr | grep "state" | cut -d: -f2` #1.4:Fixed, show interface when no ip assigned.
 for SINT in $IPS; do
 	if [[ "$SINT" =~ "vmnet" || "$SINT" =~ "enp" || "$SINT" =~ "eth" || "$SINT" =~ "ens" ]]; then ALL_INT+=$SINT' '; fi
 done # Get all interfaces name
