@@ -1,3 +1,6 @@
+v1.5
+- Fixed bug when a new interface added without rebooting system. The interface wasn't selectable.
+- When apply change, it doesn't reload nmcli connection.
 v1.4
 - You can now set the interface to dhcp;
 - Fixed bug when no IPv4 was assigned to an interface. The interface wasn't selectable.
