@@ -1,5 +1,5 @@
 #!/bin/bash
-# Current version 1.4     by Jacob Ouellette
+# Current version 1.5     by Jacob Ouellette
 ########################################################################################################
 # Interface path "/etc/network/interfaces" is default.
 INTPATH='/etc/network/interfaces'
@@ -25,9 +25,8 @@ function Error() {
 } # Error code #1.3
 function Refresh() {
 	echo '**Restarting networking service**' && systemctl restart networking
-	echo '**Reloading connection on '"$UINT"'**' && nmcli connection reload "$UINT"
 	exit 1
-} # Apply setting #1.3
+} # Apply setting #1.5
 function VerifyIP() {
 	IFS='.' inarr=(${1});
 	appender=''
@@ -117,7 +116,7 @@ if [[ $1 =~ '-h' ]]; then
 	echo -e "This script will NOT work without package ${CYAN}ifupdown${DEF}. Simply follow the instruction. Networking service will restart if the script execute successfully."
 	exit 0
 fi # Help
-IPS=`ip addr | grep "state" | cut -d: -f2` #1.4:Fixed, show interface when no ip assigned.
+IPS=`ip link show | cut -d: -f2` #1.5:Fixed, show interface when newly added without a reboot.
 for SINT in $IPS; do
 	if [[ "$SINT" =~ "vmnet" || "$SINT" =~ "enp" || "$SINT" =~ "eth" || "$SINT" =~ "ens" ]]; then ALL_INT+=$SINT' '; fi
 done # Get all interfaces name
