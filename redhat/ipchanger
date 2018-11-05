@@ -25,6 +25,7 @@ function Error() {
 	echo -e $DEF && exit 1
 } # Error code
 function Refresh() {
+	echo '**Removing previous default route**' && ip route del 0/0
 	echo '**Restarting networking service**' && systemctl restart network
 	exit 1
 } # Apply setting
