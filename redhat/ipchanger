@@ -1,0 +1,133 @@
+#!/bin/bash
+# Current version 1.0     by Jacob Ouellette
+########################################################################################################
+# Interface path "/etc/sysconfig/network-scripts" is default.
+INTPATH='/etc/sysconfig/network-scripts'
+# Color code
+declare -r DEF='\e[0m'     # Default
+declare -r RED='\e[31m'    # Red
+declare -r CYAN='\e[96m'   # Sky blue
+declare -r GREEN='\e[92m'  # Green
+########################################################################################################
+if [[ $EUID -ne 0 ]]; then
+        echo "This script must be run as root"
+        exit 1
+fi # Check if the script is run as root
+function Error() {
+	case "$1" in
+	'1') echo -e "${RED}ERROR: Invalid IP address";;
+	'2') echo -e "${RED}ERROR: Invalid prefix";;
+	'3') echo -e "${RED}ERROR: Invalid gateway";;
+	'4') echo -e "${RED}ERROR: Interface does not exist";;
+	'5') echo -e "${RED}ERROR: $2 is not a number";;
+	esac
+	echo -e $DEF && exit 1
+} # Error code
+function Refresh() {
+	echo '**Restarting networking service**' && systemctl restart network
+	exit 1
+} # Apply setting
+function VerifyIP() {
+	IFS='.' inarr=(${1});
+	appender=''
+	for i in {0..3}; do
+		if ! [[ ${inarr[i]} =~ $INT ]]; then Error 5 ${inarr[i]}; fi
+		if [[ $i == 0 || $i == 3 ]]; then
+			if [[ ${inarr[i]} -le 0 || ${inarr[i]} -ge 255 ]]; then
+				if [[ $2 == 1 ]]; then Error 1; fi
+                		if [[ $2 == 2 ]]; then Error 3; fi
+            		fi
+		fi # Check first and last digit, can't be 0 or 255
+		if [[ $i == 1 || $i == 2 ]]; then
+			if [[ ${inarr[i]} -lt 0 || ${inarr[i]} -gt 255 ]]; then
+				if [[ $2 == 1 ]]; then Error 1; fi
+				if [[ $2 == 2 ]]; then Error 3; fi
+			fi
+		fi # Allow the 2nd and 3th digit to be 0 or 255
+		appender+=${inarr[$i]}.
+	done # Check IP validation
+}
+function DHCP() {
+	GetLineNumber
+	bootproto=`grep "BOOTPROTO=" "$INTPATH" | cut -d'=' -f2`
+	if [[ `sed -n "${lineIP}p" "$INTPATH"` =~ "IPADDR" ]]; then sed -i "${lineIP}d" "$INTPATH"; fi # Remove address line
+	if [[ `sed -n "${lineMask}p" "$INTPATH"` =~ "NETMASK" ]]; then sed -i "${lineMask}d" "$INTPATH"; fi
+	sed -i "${line}s/static/dhcp/" "$INTPATH" && echo "Static -> DHCP" || echo -e "${RED}Can't change to DHCP mode${DEF}" # Change static to dhcp
+	Refresh
+} # Set to dhcp
+function AskInfo() {
+	INT='^[0-9]+$' # Used to validate int
+	read -p "New IP with prefix (/gateway if needed): " nIP
+	if [[ "$nIP" == "dhcp" ]]; then DHCP; fi # Check if dhcp
+	IFS='/' inarr=(${nIP});
+	VerifyIP ${inarr[0]} 1
+	IP=${appender::-1} # Remove last character .
+	IFS='/' inarr=(${nIP});
+	prefix=(${inarr[1]})
+	if ! [[ $prefix =~ $INT ]]; then Error 5 $prefix; fi # Check if prefix is int
+	if [[ $prefix -le 0 || $prefix -gt 32 ]]; then Error 2; fi # Check prefix validation
+	CalcPrefix $prefix
+	IFS='/' inarr=(${nIP});
+	if ! [[ ${inarr[2]} == "" ]]; then
+		VerifyIP ${inarr[2]} 2
+		GW=${appender::-1}
+	fi
+}
+function CalcPrefix() {
+	for (( i=1; i<=32; i++ )); do if [[ ${#binMask} -lt $1 ]]; then binMask+=1; else binMask+=0; fi; done # Get binary of prefix
+	dotMask=$binMask
+	for i in {1..27}; do if [[ $i == 8 || $i == 17 || $i == 26 ]]; then dotMask="${dotMask:0:i}.${dotMask:i}"; fi; done # Add . each 8 bit
+	IFS='.' inarr=(${dotMask});
+	n1=$((2#${inarr[0]})); n2=$((2#${inarr[1]})); n3=$((2#${inarr[2]})); n4=$((2#${inarr[3]})) # Binary to decimal
+	netMask=$n1.$n2.$n3.$n4
+}
+function GetLineNumber() {
+	line=`grep -n "BOOTPROTO=" "$INTPATH" | cut -d':' -f1`
+	lineMask=`grep -n "NETMASK=" "$INTPATH" | cut -d':' -f1`
+	lineIP=`grep -n "IPADDR=" "$INTPATH" | cut -d':' -f1`
+} # Get line number of address, netmask and boot protocol(static or dhcp).
+function WriteChange() {
+	if grep -Fq "$UINT" "$INTPATH"; then
+		GetLineNumber
+		if [[ `sed -n "${inarr[0]}p" "$INTPATH"` =~ "dhcp" ]]; then sed -i "${inarr[0]}s/dhcp/static/" "$INTPATH" && echo "DHCP -> static" || echo -e "${RED}Can't change to static mode${DEF}"; fi
+		if [[ $cip > `wc -l $INTPATH | cut -d' ' -f1` ]]; then
+			echo -e "\taddress $IP" >> "$INTPATH" && echo -e "IPv4 -> ${GREEN}OK${DEF}" || echo -e "IPv4 -> ${RED}FAILED${DEF}"
+            		echo -e "\tnetmask $netMask" >> "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
+			if ! [[ $3 == "" ]]; then echo -e "\tgateway $GW" >> "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi
+			Refresh
+		fi # If is the last interface of file (need append instead of replace)
+		sed -i "${cip}s/.*/\taddress $IP/" "$INTPATH" && echo -e "IPv4 -> ${GREEN}OK${DEF}" || echo -e "IPv4 -> ${RED}FAILED${DEF}" # Replace a line by number
+		sed -i "${cnet}s/.*/\tnetmask $netMask/" "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
+		if ! [[ $3 == "" ]]; then
+			if [[ `sed -n "${cgw}p" "$INTPATH"` =~ "gateway" ]]; then sed -i "${cgw}s/.*/\tgateway $GW/" "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"
+		    	else sed -i -e "${cnet}s/$/\n\tgateway $GW/" "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi # Insert line after
+		else if [[ `sed -n "${cgw}p" "$INTPATH"` =~ "gateway" ]]; then sed -i "${cgw}d" "$INTPATH" && echo -e "Gateway -> ${GREEN}REMOVED${DEF}" || echo -e "Gateway -> ${RED}CANNOT BE REMOVED${DEF}" ; fi # Remove if applicable, last gateway set #1.3
+		fi
+	else
+		echo "auto $UINT" >> "$INTPATH" && echo -e "${GREEN}$UINT added to $INTPATH file${DEF}" || echo -e "${RED}CANNOT ADD $UINT TO $INTPATH${DEF}"
+		echo "iface $UINT inet static" >> "$INTPATH"
+		echo -e "\taddress $IP" >> "$INTPATH" && echo -e "IPv4 -> ${GREEN}OK${DEF}" || echo -e "IPv4 -> ${RED}FAILED${DEF}"
+		echo -e "\tnetmask $netMask" >> "$INTPATH" && echo -e "Netmask -> ${GREEN}OK${DEF}" || echo -e "Netmask -> ${RED}FAILED${DEF}"
+		if ! [[ $3 == "" ]]; then echo -e "\tgateway $GW" >> "$INTPATH" && echo -e "Gateway -> ${GREEN}OK${DEF}" || echo -e "Gateway -> ${RED}FAILED${DEF}"; fi
+	fi
+}
+if [[ $1 =~ '-h' ]]; then
+    echo "Syntax when asking for IP: ip/prefix OR ip/prefix/gateway OR dhcp"
+	echo -e "This script will NOT work without package ${CYAN}ifupdown${DEF}. Simply follow the instruction. Networking service will restart if the script execute successfully."
+	exit 0
+fi # Help
+IPS=`ip link show | cut -d: -f2` # Show interface when newly added without a reboot.
+for SINT in $IPS; do
+	if [[ "$SINT" =~ "vmnet" || "$SINT" =~ "enp" || "$SINT" =~ "eth" || "$SINT" =~ "ens" ]]; then ALL_INT+=$SINT' '; fi
+done # Get all interfaces name
+echo $ALL_INT
+read -p "Select an interface: " UINT
+for SINT in $ALL_INT; do
+	if [[ $SINT == $UINT ]]; then
+		INTPATH="$INTPATH/ifcfg-$UINT"
+		AskInfo
+		WriteChange $IP $netMask $GW
+		Refresh
+	fi
+done
+Error 4
