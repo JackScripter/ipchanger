@@ -1,5 +1,5 @@
 #!/bin/bash
-# Current version 1.0     by Jacob Ouellette
+# Current version 1.6     by Jacob Ouellette
 ########################################################################################################
 # Interface path "/etc/sysconfig/network-scripts" is default.
 INTPATH='/etc/sysconfig/network-scripts'
