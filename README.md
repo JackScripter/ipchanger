@@ -1,5 +1,5 @@
 # ipchanger
-Script to change IPv4 address permanently and quickly (Debian)(RedHat version in progress)
+Script to change IPv4 address permanently and quickly on Debian and RedHat.
 
 Installation
 -
