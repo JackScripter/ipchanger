@@ -3,6 +3,7 @@
 ######################################################################################################
 # Default installation path:
 DEFAULT_INSTALL='/usr/bin'
+MAN_PATH='/usr/share/man/man1'
 ######################################################################################################
 if [[ $EUID -ne 0 ]]; then
         echo "This script must be run as root"
@@ -13,6 +14,7 @@ function Debian() {
         if [[ "$editedPath" == '' ]]; then
                 cp -v "debian/ipchanger" "$DEFAULT_INSTALL"
                 chmod -v 755 "$DEFAULT_INSTALL/ipchanger"
+                cp -v ipchanger.1 $MAN_PATH
         else
                 cp -v "debian/ipchanger" "$editedPath"
                 chmod -v 755 "$editedPath/ipchanger"
@@ -24,6 +26,7 @@ function RedHat() {
         if [[ "$editedPath" == '' ]]; then
                 cp -v "redhat/ipchanger" "$DEFAULT_INSTALL"
                 chmod -v 755 "$DEFAULT_INSTALL/ipchanger"
+                cp -v ipchanger.1 $MAN_PATH
         else
                 cp -v "redhat/ipchanger" "$editedPath"
                 chmod -v 755 "$editedPath/ipchanger"
