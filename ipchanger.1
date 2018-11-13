@@ -1,0 +1,38 @@
+.TH IPCHANGER 1
+.SH NAME
+ipchanger - Change IPv4 address permanently and quickly on Debian and RedHat
+.SH SYNOPSIS
+.B ipchanger
+[\fB\-i\fR \fIINTERFACE\fR]
+[\fB\-d\fR]
+.IR ipv4/prefix
+[\fB\-g\fR \fIGATEWAY\fR]
+.SH DESCRIPTION
+.B ipchanger
+modifies network file with static or dhcp address.
+This script must be run as root. On debian-based, you need to have package
+\fB\ifupdown\fR
+installed.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help page.
+.TP
+.BR \-i ", " \-\-interface =\fIINTERFACE\fR
+Specify which interface to configure.
+.TP
+.BR \-d ", " \-\-dhcp
+Set interface in dhcp mode.
+.TP
+.BR \-g ", " \-\-gateway =\fIGATEWAY\fR
+Specify the default gateway, if needed.
+.SH EXAMPLE
+.TP
+.BR \ipchanger " " -i " " eth0 " " -d
+Will set interface eth0 in dhcp.
+.TP
+.BR \ipchanger " " -i enp0s3 " " 192.168.1.1/24
+Will set ip 192.168.1.1 with netmask 255.255.255.0 on interface enp0s3.
+.TP
+.BR \ipchanger " " -i ens29 " " 192.168.1.100/24 -g 192.168.1.1
+Will set ip 192.168.1.100 with netmask 255.255.255.0 on interface ens29 and set default gateway to 192.168.1.1.
